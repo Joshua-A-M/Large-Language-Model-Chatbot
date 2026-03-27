@@ -408,7 +408,7 @@ print(input_embeddings.shape)
 
 
 
-#   C H A P T E R  2
+#   C H A P T E R  3
 #   C O D I N G  A T T E N T I O N  M E C H A N I S M S
 
 #   first step of implementing self-attention is to compute the intermediate values w, referred to as attention scores
@@ -2194,3 +2194,127 @@ model_configs = {
     "gpt2-large (774M)": {"emb_dim": 1280, "n_layers": 36, "n_heads": 20},
     "gpt2-xl (1558M)": {"emb_dim": 1600, "n_layers": 48, "n_heads": 25}
 }
+
+#   this is how to load the smallest model
+model_name = "gpt2-small (124M)"
+NEW_CONFIG = GPT_CONFIG_124M.copy()
+NEW_CONFIG.update(model_configs[model_name])
+
+#   update the NEW_CONFIG with the GPT2 1,024-token length
+NEW_CONFIG.update({"context_length": 1024})
+
+#   OpenAI used bias vectors in the multi-head attention module's linear layers to implement the query, key
+#   and value matrix computations
+NEW_CONFIG.update({"qkv_bias": True})
+
+#   use the update NEW_CONFIG dictionary to initialize a new GPTModel instance
+gpt = GPTModel(NEW_CONFIG)
+gpt.eval()
+
+#   by default the GPTModel is initialized with random weights for pretraining
+#   oevrride the random weights with the weights that were loaded into the params dictionary
+#   first, define a small assign utility function that checks whether two tensors or arrays
+#   have the same dimensions or shape and returns the right tensor as trainable PyTorch parameters:
+def assign(left, right):
+    if left.shape != right.shape:
+        raise ValueError(f"Shape mismatch. Left: {left.shape}, "
+                         f"Right: {right.shape}"
+                         )
+    return torch.nn.Parameter(torch.tensor(right))
+
+#   next, define a load_weights_into_gpt function that loads the weights from the
+#   params dictionary into a GPTModel instance gpt
+
+import numpy as np
+
+def load_weights_into_gpt(gpt, params):
+    gpt.pos_emb.weight = assign(gpt.pos_emb.weight, params['wpe'])
+    gpt.tok_emb.weight = assign(gpt.tok_emb.weight, params['wte'])
+
+    #   Iterates over each transformer block in the model
+    for b in range(len(params["blocks"])):
+        #   The np.split function is used to divide the attention and bias weights into three
+        #   equal parts for the query, key, and value components
+        q_w, k_w, v_w = np.split(
+            (params["blocks"][b]["attn"]["c_attn"])['w'], 3, axis=-1)
+        gpt.trf_blocks[b].att.W_query.weight = assign(
+            gpt.trf_blocks[b].att.W_query.weight, q_w.T)
+        gpt.trf_blocks[b].att.W_key.weight = assign(
+            gpt.trf_blocks[b].att.W_key.weight, k_w.T)
+        gpt.trf_blocks[b].att.W_value.weight = assign(
+            gpt.trf_blocks[b].att.W_value.weight, v_w.T)
+
+        q_b, k_b, v_b = np.split(
+            (params["blocks"][b]["attn"]["c_attn"])["b"], 3, axis=-1)
+        gpt.trf_blocks[b].att.W_query.bias = assign(
+            gpt.trf_blocks[b].att.W_query.bias, q_b)
+        gpt.trf_blocks[b].att.W_key.bias = assign(
+            gpt.trf_blocks[b].att.W_key.bias, k_b)
+        gpt.trf_blocks[b].att.W_value.bias = assign(
+            gpt.trf_blocks[b].att.W_value.bias, v_b)
+
+        gpt.trf_blocks[b].att.out_proj.weight = assign(
+            gpt.trf_blocks[b].att.out_proj.weight,
+            params["blocks"][b]["attn"]["c_proj"]["w"].T)
+        gpt.trf_blocks[b].att.out_proj.bias = assign(
+            gpt.trf_blocks[b].att.out_proj.bias,
+            params["blocks"][b]["attn"]["c_proj"]["b"]
+        )
+
+        gpt.trf_blocks[b].ff.layers[0].weight = assign(
+            gpt.trf_blocks[b].ff.layers[0].weight,
+            params["blocks"][b]["mlp"]["c_fc"]["w"].T)
+        gpt.trf_blocks[b].ff.layers[0].bias = assign(
+            gpt.trf_blocks[b].ff.layers[0].bias,
+            params["blocks"][b]["mlp"]["c_fc"]["b"])
+        gpt.trf_blocks[b].ff.layers[2].weight = assign(
+            gpt.trf_blocks[b].ff.layers[2].weight,
+            params["blocks"][b]["mlp"]["c_proj"]["w"].T)
+        gpt.trf_blocks[b].ff.layers[2].bias = assign(
+            gpt.trf_blocks[b].ff.layers[2].bias,
+            params["blocks"][b]["mlp"]["c_proj"]["b"]
+        )
+
+        gpt.trf_blocks[b].norm1.scale = assign(
+            gpt.trf_blocks[b].norm1.scale,
+            params["blocks"][b]["ln_1"]["g"])
+        gpt.trf_blocks[b].norm1.shift = assign(
+            gpt.trf_blocks[b].norm1.shift,
+            params["blocks"][b]["ln_1"]["b"])
+        gpt.trf_blocks[b].norm2.scale = assign(
+            gpt.trf_blocks[b].norm2.scale,
+            params["blocks"][b]["ln_2"]["g"])
+        gpt.trf_blocks[b].norm2.shift = assign(
+            gpt.trf_blocks[b].norm2.shift,
+            params["blocks"][b]["ln_2"]["b"])
+
+    gpt.final_norm.scale = assign(gpt.final_norm.scale, params["g"])
+    gpt.final_norm.shift = assign(gpt.final_norm.shift, params["b"])
+    gpt.out_head.weight = assign(gpt.out_head.weight, params["wte"])
+
+
+#   In the load_weights-into_gpt function, we carefully match the weights from OpenAI's
+#   implementation with our GPTModel implementation
+#   OpenAI stored the weight tensor for the output projections layer for the first
+#   transformer block as params["blocks"][0]["attn"]["c_proj"]["w"]
+#   this weight tensor corresponds to gpt.trf_blocks[b].att.out_proj.weight, where gpt is a GPTMpodel instance
+#   If we made a mistake in this function, we would notice this as the resulting GPT model would be unable
+#   to produce coherent text
+
+#   try the load_weights_into_gpt out in practice and load the OpenAI model weights into our
+#   GPTModel instance gpt:
+load_weights_into_gpt(gpt, params)
+gpt.to(device)
+
+#   if the model is loaded correctly, can now use it to generate new text
+torch.manual_seed(123)
+token_ids = generate(
+    model=gpt,
+    idx=text_to_token_ids("Every effort moves you", tokenizer).to(device),
+    max_new_tokens=25,
+    context_size=NEW_CONFIG["context_length"],
+    top_k=50,
+    temperature=1.5
+)
+
+print("Output text:\n", token_ids_to_text(token_ids, tokenizer))
