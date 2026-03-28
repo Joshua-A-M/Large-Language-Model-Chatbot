@@ -70,7 +70,7 @@ for i, item in enumerate(vocab.items()):
 
 #   Want to convert outputs of LLM from numbers back into text requires a way to turn token IDs into text
 #   create an inverse version of the vocabulary that maps token IDs back to the corresponding text tokens
-#   implement a complete tokenizer class in Python with an anecode method that splits tokens and carries
+#   implement a complete tokenizer class in Python with an encode method that splits tokens and carries
 #   out the string-to-integer mapping
 #   Will implement a decode method that carries out the reverse integer-to-string mapping
 class SimpleTokenizerV1:
@@ -151,7 +151,7 @@ print(tokenizer.decode(ids))
 #   Highlights the need to consider large and diverse training sets to extend the vocabulary when working on LLMs
 text = "Hello, do you like tea?"
 
-#   Can modify the toeknizer to use an <|unk|> token if it encounters word that is not part of the vocabulary
+#   Can modify the tokenizer to use an <|unk|> token if it encounters word that is not part of the vocabulary
 #   Add a token between unrelated texts
 all_tokens = sorted(list(set(preprocessed)))
 all_tokens.extend(["<|endoftext|>", "<|unk|>"])
@@ -164,7 +164,7 @@ print(len(vocab.items()))
 for i, item in enumerate(list(vocab.items())[-5:]):
     print(item)
 
-#   The ne tokenizer replaces unknown words with <|unk|> tokens
+#   The new tokenizer replaces unknown words with <|unk|> tokens
 text1 = "Hello, do you like tea?"
 text2 = "In the sunlit terraces of the palace."
 text = "<|endoftext|> ".join((text1, text2))
@@ -228,7 +228,7 @@ y = enc_sample[1:context_size + 1]
 print(f"x: {x}")
 print(f"y: {y}")
 
-#   By processing the inputs along with the targets, whic are the inputs shifted by one position, we can create the next-word prediction tasks
+#   By processing the inputs along with the targets, which are the inputs shifted by one position, we can create the next-word prediction tasks
 for i in range(1, context_size + 1):
     context = enc_sample[:i]
     desired = enc_sample[i]
@@ -242,7 +242,7 @@ for i in range(1, context_size + 1):
     desired = enc_sample[i]
     print(tokenizer.decode(context), "---->", tokenizer.decode([desired]))
 
-#   One more task before we canturn the tokens into embeddings: implementing an efficient data loader that iterates over the input dataset and
+#   One more task before we can turn the tokens into embeddings: implementing an efficient data loader that iterates over the input dataset and
 #   returns the inputs and targets as PyTorch tensors (multidimensional arrays)
 #   two tensors: an input tensor containing the text that the LLM sees and a target tensor that includes the targets for the LLM to predict
 
@@ -356,14 +356,14 @@ print(embedding_layer(input_ids))
 
 #   E N C O D I N G  W O R D  P O S I T I O N S
 #   shortcoming of token embeddings with LLMs is that their self attention mechanism doesn't have a notion of position
-#   or order for the otkens without a sequence
-#   deterministic, position-independent embeddingof the token ID is good for reproducibility purposes.
+#   or order for the tokens without a sequence
+#   deterministic, position-independent embedding of the token ID is good for reproducibility purposes.
 #   Helpful to inject additional position information into the LLM
 #   use two broad categories of position-aware embeddings: relative positional embeddings and absolute positional embeddings
 #   absolute positional embeddings are directly associated with specific positions in a sequence
-#   relative positional embedding isrelated to the relative position or distance between tokens
+#   relative positional embedding is related to the relative position or distance between tokens
 
-#   consider more realistic and sueful embedding sizes and encode the inpute tokes into 256-dimensional vector representation
+#   consider more realistic and useful embedding sizes and encode the input tokens into 256-dimensional vector representation
 
 vocab_size = 50257
 output_dim = 256
@@ -488,7 +488,7 @@ print(attn_scores)
 
 #   Normalize ea;h row so tha the values in each row sum to 1
 
-#   In the context of using PyTorch, the dim parameter in functions like torch.softmax specfies the dimension of the input tensor
+#   In the context of using PyTorch, the dim parameter in functions like torch.softmax specifies the dimension of the input tensor
 #   along which the function will be computed
 #   By setting dim=-1, instruct the softmax function to apply the normalization along the last dimension of the attn_scores tensor
 attn_weights = torch.softmax(attn_scores, dim=-1)
@@ -512,7 +512,7 @@ print("Previous 2nd context vector:", context_vec_2)
 
 #   Page 64
 #   Next step is to add trainable weights, enabling the LLM to learn from data and improve its performance on specific tasks
-#   implement the self-attention mechnaism used in the original transformer architecture, the GPT models, and most other popular LLMs
+#   implement the self-attention mechanism used in the original transformer architecture, the GPT models, and most other popular LLMs
 #   scaled dot-product attention
 
 #   compute context vectors as weighted sums over the input vectors specific to a certain input element
@@ -655,7 +655,7 @@ print(sa_v2(inputs))
 #   want the self-attention mechanism to consider only the tokens that appear prior to the current position when predicting the next token in a sequence
 #   Casual attention or mashed attention is a specialized form of self attention that restricts amodel to only consider previous and current inputs in a sequence
 #   when processing any given token when computing attention scores
-#   for each token processed, we mask out the future tokens, which come after the current otken in the input text
+#   for each token processed, we mask out the future tokens, which come after the current token in the input text
 #   mask out the attention weights above the diagonal and normalize the nonmasked attention weights such that the attention weights sum to 1 in each row.
 
 queries = sa_v2.W_query(inputs)
@@ -815,7 +815,7 @@ print("context_vecs.shape:", context_vecs.shape)
 
 class MultiHeadAttention(nn.Module):
     """
-    itnegrates the multi-head functionality within a single class
+    integrates the multi-head functionality within a single class
     splits the input into multiple heads by reshaping the projected query, key, and value tensors and then
     combines the results from these heads after computing attention
     """
@@ -1140,7 +1140,7 @@ plt.show()
 # use the GELU function to implement the small neural network module, FeedForward:
 class FeedForward(nn.Module):
     """
-    The FeedForward module is a small neural netowkr consisting of two linear layers and a GELU activation function
+    The FeedForward module is a small neural network consisting of two linear layers and a GELU activation function
     In the 124-million-parameter GPT model, it receives the input batches with tokens that have an embedding size of 769
     each via the GPT_CONFIG_124M dictionary
     """
@@ -1166,20 +1166,20 @@ out = ffn(x)
 print(out.shape)
 
 #   The FeedForward module plays a crucial role in enhancing the model's ability to learn from and generalize the data
-#   It eternally expands the embedding dimension into a higher idmensional space through the first linear layer
+#   It eternally expands the embedding dimension into a higher dimensional space through the first linear layer
 #   Followed by a nonlinear GELU activation and then a contraction back to the original
 #   dimension with the second linear transformation
 
 #   Page 109
 #   4.4 Adding shortcut connection
-#   shortcut connections or skip / residual connections were origninall proposed for deep networks in computer vision to
+#   shortcut connections or skip / residual connections were origninal proposed for deep networks in computer vision to
 #   mitigate the challenge of vanishing gradients
 #   vanishing gradient problem refers to the issue where gradients (guide weight updates during training) become
 #   progressively smaller as they propagate backward through the layers,
 #   making it difficult to effectively main earlier layers
 #   shortcut connection creates an alternative, shorter path for the gradient to flow through the network by skipping
 #   one or more layers
-#   achieved by adding the output of one layer to the ouput of a later layer
+#   achieved by adding the output of one layer to the output of a later layer
 #   these connections are also
 
 class ExampleDeepNeuralNetwork(nn.Module):
@@ -1187,7 +1187,7 @@ class ExampleDeepNeuralNetwork(nn.Module):
     Implements a deep neural network with five layers, each consisting of a
     linear layer and a GELU activation function
     In the forward pass, iteratively pass the input through the layers and optionally add the
-    shortcut connections if the self.use_shortcut attribue is set to True
+    shortcut connections if the self.use_shortcut attribute is set to True
     """
     def __init__(self, layer_sizes, use_shortcut):
         super().__init__()
@@ -1267,8 +1267,8 @@ print_gradients(model_with_shortcut, sample_input)
 #   Page 113
 #   4.5 Connecting attention and linear layers in a transformer block
 #   The transformer block is repeated a dozen times in the 124-million-parameter GPT-2 architecture, combines several concepts: multi-head
-#   attetnion, layer normalization, dropout, feed forward layers, and GELU activations
-#   When a transformer block processes an input sequence, each element in the sequqnce is represented by a fixed-size vector
+#   attention, layer normalization, dropout, feed forward layers, and GELU activations
+#   When a transformer block processes an input sequence, each element in the sequence is represented by a fixed-size vector
 #   the operations within the transformer block, including multi-head attention and feed forward layers are
 #   designed to transform these vectors in a way that preserves their dimensionality
 #   self-attention mechanism in the multi-head attention block identifies and analyzes relationships between elements in the input sequence.
@@ -1277,13 +1277,13 @@ print_gradients(model_with_shortcut, sample_input)
 #   Create the TransformerBlock:
 class TransformerBlock(nn.Module):
     """
-    Includes a multi-head attention mechnaism and a feed forward network
+    Includes a multi-head attention mechnanism and a feed forward network
     Layer normalization is applied before each of these two components and
     dropout is applied after them to regularize the model and prevent overfitting
     This is known as Pre-LayerNorm
-    Implements a forward pass, where each componenet is followed by a shortcut connection
+    Implements a forward pass, where each component is followed by a shortcut connection
     that adds the input of the block to its output
-    This helps gradients flow thourgh the network during training and improves the learning
+    This helps gradients flow through the network during training and improves the learning
     of deep models
     """
     def __init__(self, cfg):
@@ -1402,7 +1402,7 @@ total_params = sum(p.numel() for p in model.parameters())
 #   The result is 163,009,536
 print(f"Total number of parameters: {total_params:,}")
 
-#   if we initalized 124 million parameter gpt why is the actual number of parameters 163 millions?
+#   if we initialized 124 million parameter gpt why is the actual number of parameters 163 millions?
 #   a concept called "weight tying" that was used in the original GPT-2 architecture. It reuses the weights
 #   from the token embedding layer in its output layer
 #   Take a look at the shapes of the token embedding layer and linear output layer that was initialized on the model via the GPTModel:
@@ -1524,7 +1524,7 @@ model = GPTModel(GPT_CONFIG_124M)
 model.eval()
 
 #   after the training, will update the context size setting and load pretrained weights to work with a model configured
-#   for a 1024-token context length setting and load pretrained weights to work with a model confiugred for a
+#   for a 1024-token context length setting and load pretrained weights to work with a model configured for a
 #   1024-token context length
 
 #   implement the text generation process:
@@ -1552,7 +1552,7 @@ token_ids = generate_text_simple(
 )
 
 #   returns Every effort moves you rentingetic wasn? refres RexMeCHicular stren
-#   The model isn't predicting coherent text becuase it hasn't nudergone training
+#   The model isn't predicting coherent text because it hasn't undergone training
 #   have to implement a numerical method to evaluate the generated content to monitor and enhance the model's performance
 print("Output text:\n", token_ids_to_text(token_ids, tokenizer))
 
@@ -1652,7 +1652,7 @@ loss = torch.nn.functional.cross_entropy(logits_flat, targets_flat)
 #   we have now calculated the loss for two small text inputs for illustration purposes
 #   apply the loss computation to the entire training and validation sets
 
-#   to compute the loss on the training and validation datases, use a very small text dataset, the "The Verdict."
+#   to compute the loss on the training and validation datasets, use a very small text dataset, the "The Verdict."
 #   by selecting a text from the public domain, we circumvent any related to usage rights
 #   using such a small dataset allows for the execution of code examples on a standard laptop computer in a matter of
 #   minutes, even without a high-end GPU
@@ -1969,17 +1969,17 @@ probas = torch.softmax(next_token_logits, dim=0)
 next_token_id = torch.argmax(probas).item()
 print(inverse_vocab[next_token_id])
 
-#   since the largest logit value and, correspondingly, the largest softmax probabiity score are in the fourht position,
+#   since the largest logit value and, correspondingly, the largest softmax probability score are in the fourth position,
 #   the generated word is "forward"
-#   to iiplement a probabilistic sampling process, replace argmax with the multinomial function in PyTorch
+#   to implement a probabilistic sampling process, replace argmax with the multinomial function in PyTorch
 torch.manual_seed(123)
 next_token_id = torch.multinomial(probas, num_samples=1).item()
 #   the printed output is "forward" just like before. What happened?
-#   the multinomial function samples the next token prportional to its probabilit score: "forward" is still the most likely token and
+#   the multinomial function samples the next token proportional to its probabilit score: "forward" is still the most likely token and
 #   will be selected by multinomial most of the time but not all the time
 print(inverse_vocab[next_token_id])
 
-#   to illustrate this, implement a function that repeats this smapling 1,000 times:
+#   to illustrate this, implement a function that repeats this sampling 1,000 times:
 def print_sampled_tokens(probas):
     torch.manual_seed(123)
     sample = [torch.multinomial(probas, num_samples=1).item()
@@ -2215,7 +2215,7 @@ gpt = GPTModel(NEW_CONFIG)
 gpt.eval()
 
 #   by default the GPTModel is initialized with random weights for pretraining
-#   oevrride the random weights with the weights that were loaded into the params dictionary
+#   override the random weights with the weights that were loaded into the params dictionary
 #   first, define a small assign utility function that checks whether two tensors or arrays
 #   have the same dimensions or shape and returns the right tensor as trainable PyTorch parameters:
 def assign(left, right):
@@ -2339,8 +2339,8 @@ print("Output text:\n", token_ids_to_text(token_ids, tokenizer))
 #   This is step 8
 
 #   6.1 Different categories of fine-tuning
-#   most common ways to fine-tune language models are instruction fine-tning and classification fine-tuning
-#   instruction fine-tuning involves training a lnaguage model on a set of tasks using specific isntructiosn to improve its ability to understand and execute
+#   most common ways to fine-tune language models are instruction fine-tuning and classification fine-tuning
+#   instruction fine-tuning involves training a language model on a set of tasks using specific isntructiosn to improve its ability to understand and execute
 #   tasks described in natural language prompts
 #   in classification fine-tuning, the model is trained to recognize a specific stet of class labels, such as "spam" and "not-spam"
 #   restricted to predicting classes it has encountered during its training
@@ -2348,8 +2348,8 @@ print("Output text:\n", token_ids_to_text(token_ids, tokenizer))
 
 #   6.2 Preparing the dataset
 #   modify and classification fine-tune the GPT model by fist downloading and preparing the dataset
-#   to provide an intuitive and useful exmaple of classification fine-tuning,
-#   will work with a text message dataset taht consists of spam and not-spam messages
+#   to provide an intuitive and useful example of classification fine-tuning,
+#   will work with a text message dataset that consists of spam and not-spam messages
 
 #   first step is to download the dataset
 import requests
@@ -2407,7 +2407,7 @@ df = pd.read_csv(
 df
 print(df)
 
-#   because we prefer a small dataset which will facilitate faster fine tuing of the LLM, we choose
+#   because we prefer a small dataset which will facilitate faster fine tuning of the LLM, we choose
 #   to undersample the dataset to include 747 instances from each class
 
 #   use this code to undersample and create a balanced dataset
@@ -2478,7 +2478,7 @@ test_df.to_csv("test.csv", index=None)
 #   we add padding tokens to all shorter messages
 #   we use "<|endoftext|>" as a padding token
 #   can add the token ID corresponding to "<|endoftext|>" to the encoded text messages
-#   can double-check whether the token ID is correct by endoing the "<|endoftext|>" using the GPT-2 tokenizer from the tiktoken package
+#   can double-check whether the token ID is correct by encoding the "<|endoftext|>" using the GPT-2 tokenizer from the tiktoken package
 import tiktoken
 tokenizer = tiktoken.get_encoding("gpt2")
 print(tokenizer.encode("<|endoftext|>", allowed_special={"<|endoftext|>"}))
@@ -2556,7 +2556,7 @@ train_dataset = SpamDataset(
 print(train_dataset.max_length)
 
 #   next, pad the validation and test sets to match the length of the longest training sequence.
-#   any validation and test set samples exeeding the length of the longest training exapmle are truncated using encoded_text[:slef.max_length]
+#   any validation and test set samples exceeding the length of the longest training exapmle are truncated using encoded_text[:slef.max_length]
 #   in the SpamDataset code
 #   This truncation is optional
 #   can set max_length=None for both validation and test sets
