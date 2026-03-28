@@ -1,7 +1,7 @@
 #   C H A P T E R  3
 #   C O D I N G  A T T E N T I O N  M E C H A N I S M S
 import torch
-import torch.nn as torch
+import torch.nn as nn
 #   first step of implementing self-attention is to compute the intermediate values w, referred to as attention scores
 inputs = torch.tensor(
     [
@@ -76,7 +76,7 @@ print(attn_scores)
 
 #   Normalize ea;h row so tha the values in each row sum to 1
 
-#   In the context of using PyTorch, the dim parameter in functions like torch.softmax specfies the dimension of the input tensor
+#   In the context of using PyTorch, the dim parameter in functions like torch.softmax specifies the dimension of the input tensor
 #   along which the function will be computed
 #   By setting dim=-1, instruct the softmax function to apply the normalization along the last dimension of the attn_scores tensor
 attn_weights = torch.softmax(attn_scores, dim=-1)
@@ -100,7 +100,7 @@ print("Previous 2nd context vector:", context_vec_2)
 
 #   Page 64
 #   Next step is to add trainable weights, enabling the LLM to learn from data and improve its performance on specific tasks
-#   implement the self-attention mechnaism used in the original transformer architecture, the GPT models, and most other popular LLMs
+#   implement the self-attention mechanism used in the original transformer architecture, the GPT models, and most other popular LLMs
 #   scaled dot-product attention
 
 #   compute context vectors as weighted sums over the input vectors specific to a certain input element
@@ -243,7 +243,7 @@ print(sa_v2(inputs))
 #   want the self-attention mechanism to consider only the tokens that appear prior to the current position when predicting the next token in a sequence
 #   Casual attention or mashed attention is a specialized form of self attention that restricts amodel to only consider previous and current inputs in a sequence
 #   when processing any given token when computing attention scores
-#   for each token processed, we mask out the future tokens, which come after the current otken in the input text
+#   for each token processed, we mask out the future tokens, which come after the current token in the input text
 #   mask out the attention weights above the diagonal and normalize the nonmasked attention weights such that the attention weights sum to 1 in each row.
 
 queries = sa_v2.W_query(inputs)
@@ -403,7 +403,7 @@ print("context_vecs.shape:", context_vecs.shape)
 
 class MultiHeadAttention(nn.Module):
     """
-    itnegrates the multi-head functionality within a single class
+    integrates the multi-head functionality within a single class
     splits the input into multiple heads by reshaping the projected query, key, and value tensors and then
     combines the results from these heads after computing attention
     """
