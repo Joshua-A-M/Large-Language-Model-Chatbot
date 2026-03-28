@@ -2556,7 +2556,7 @@ train_dataset = SpamDataset(
 print(train_dataset.max_length)
 
 #   next, pad the validation and test sets to match the length of the longest training sequence.
-#   any validation and test set samples exceeding the length of the longest training exapmle are truncated using encoded_text[:slef.max_length]
+#   any validation and test set samples exceeding the length of the longest training example are truncated using encoded_text[:self.max_length]
 #   in the SpamDataset code
 #   This truncation is optional
 #   can set max_length=None for both validation and test sets
@@ -2765,3 +2765,134 @@ print("Last output token:", outputs[:, -1, :])
 
 #   Page 190
 #   6.6 Calculating the classification loss and accuracy
+#   must implement the model evaluation function used during fine-tuning
+#   work with 2-dimensional instead of 50,257 dimensional outputs
+#   example:
+#   values of the tensor corresponding to the last tokens are tensor([[-3.5983, 3.9902]])
+print("Last output token:", outputs[:, -1, :])
+
+#   obtain the class label
+probas = torch.softmax(outputs[:, -1, :], dim=-1)
+label = torch.argmax(probas)
+#   the code returns 1, meaning the model predicts that the input text is "spam"
+print("Class label:", label.item())
+
+#   can simplify the code without using softmax:
+logits = outputs[:, -1, :]
+label = torch.argmax(logits)
+print("Class label:", label.item())
+
+#   concept can be used to compute the classification accuracy, which measures the percentage of correct predictions
+#   across a dataset
+#   to determine the classification accuracy, we apply the argmax-based prediction code to all
+#   examples in the dataset and calculate the proportion of correct predictions
+#   by defining a calc_accuracy_loader function
+
+def calc_accuracy_loader(data_loader, model, device, num_batches=None):
+    model.eval()
+    correct_predictions, num_examples = 0, 0
+
+    if num_batches is None:
+        num_batches = len(data_loader)
+    else:
+        num_batches = min(num_batches, len(data_loader))
+    for i, (input_batch, target_batch) in enumerate(data_loader):
+        if i < num_batches:
+            input_batch = input_batch.to(device)
+            target_batch = target_batch.to(device)
+
+            with torch.no_grad():
+                #   logits of last output token
+                logits = model(input_batch)[:, -1, :]
+            predicted_labels = torch.argmax(logits, dim=-1)
+
+            num_examples += predicted_labels.shape[0]
+            correct_predictions += (
+            (predicted_labels == target_batch).sum().item()
+            )
+        else:
+            break
+    return correct_predictions / num_examples
+
+#   use the function to determine the classification accuracies across various datasets estimated
+#   from 10 batches for efficiency
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cup")
+model.to(device)
+
+torch.manual_seed(123)
+train_accuracy = calc_accuracy_loader(
+    train_loader, model, device, num_batches=10
+)
+
+val_accuracy = calc_accuracy_loader(
+    val_loader, model, device, num_batches=10
+)
+
+test_accuracy = calc_accuracy_loader(
+    test_loader, model, device, num_batches=10
+)
+
+print(f"Training accuracy: {train_accuracy*100:.2f}%")
+print(f"Validation accuracy: {val_accuracy*100:.2f}%")
+print(f"Test accuracy: {test_accuracy*100:.2f}%")
+
+#   the prediction accuracies are near a random prediction, which would be 50% in this case
+#   to improve the prediction accuracies, need to fine-tune the model
+#   must first define the loss function we will optimize during training
+#   objective is to maximize the spam classification accuracy of the model which means
+#   that the preceding code should output the correct class labels: 0 and 1
+#   because classification accuracy is not a differentiable function, use cross-entropy loss as
+#   a proxy t maximize accuracy
+
+#   calc_loss_batch function remains the same but focus on optimizing only the last token, model(input_batch)[:, -1, :], rather
+#   than all tokens, model(input_batch)
+
+def calc_loss_batch(input_batch, target_batch, model, device):
+    input_batch = input_batch.to(device)
+    target_batch = target_batch.to(device)
+    #   logits of last output token
+    logits = model(input_batch)[:, -1, :]
+    loss = torch.nn.functional.cross_entropy(logits, target_batch)
+    return loss
+
+#   use the calc_loss_batch function to compute the loss for a single batch obtained from the
+#   previously defined data loaders
+#   to calculate the loss for all batches in a data loader, define the calc_loss_loader function
+def calc_loss_loader(data_loader, model, device, num_batches=None):
+    total_loss = 0
+    if len(data_loader) == 0:
+        return float("nan")
+    elif num_batches is None:
+        num_batches = len(data_loader)
+    else:
+        #   Ensures the number of batches doesn't exceed batches in data loader
+        num_batches = min(num_batches, len(data_loader))
+    for i, (input_batch, target_batch) in enumerate(data_loader):
+        if i < num_batches:
+            loss = calc_loss_batch(
+                input_batch, target_batch, model, device
+            )
+            total_loss += loss.item()
+        else:
+            break
+    return total_loss / num_batches
+
+#   similar to calculating the training accuracy, now compute the initial loss for each data set:
+
+#   Disables gradient tracking for efficiency because we are not training yet
+with torch.no_grad():
+    train_loss = calc_loss_loader(
+        train_loader, model, device, num_batches=5
+    )
+    val_loss = calc_loss_loader(val_loader, model, device, num_batches=5)
+    test_loss = calc_loss_loader(test_loader, model, device, num_batches=5)
+print(f"Training loss: {train_loss:.3f}")
+print(f"Validation loss: {val_loss:.3f}")
+print(f"Test loss: {test_loss:.3f}")
+
+#   next, implement a training function to fine-tune the model, which means adjusting the model to minimize
+#   the training set loss
+#   this helps increase the classification accuracy
+#   Page 195
+#   6.7 Fine-tuning the model on supervised data
