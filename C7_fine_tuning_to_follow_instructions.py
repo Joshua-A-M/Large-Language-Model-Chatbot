@@ -22,6 +22,7 @@ import json
 import os
 import urllib
 
+
 def download_and_load_file(file_path, url):
     if not os.path.exists(file_path):
         with urllib.request.urlopen(url) as response:
@@ -57,8 +58,8 @@ print("Another example entry:\n", data[999])
 #   the Alpaca-style input format
 def format_input(entry):
     instruction_text = (
-        f"Below is an instruction that describes a task. "
-        f"write a response that appropriately completes the request. "
+        f"\n\nBelow is an instruction that describes a task. "
+        f"\n\nwrite a response that appropriately completes the request. "
         f"\n\n### Instruction: \n{entry['instruction']}"
     )
 
@@ -132,7 +133,7 @@ class InstructionDataset(Dataset):
 
 
 #   step 2
-#   want to acceleate training by collecting multiple training exmaples in a batch
+#   want to accelerate training by collecting multiple training exmaples in a batch
 #   which necessitates padding all inputs to a similar length
 import tiktoken
 tokenizer = tiktoken.get_encoding("gpt2")
@@ -189,7 +190,7 @@ print(custom_collate_draft_1(batch))
 #   need during training to calculate the loss for the weight updates
 #   modify our custom collate function to return the target token IDs in addition to the input token IDs
 
-#   the target token IDs match the input toekn IDs but are shifted onp osition to the right
+#   the target token IDs match the input token IDs but are shifted one position to the right
 #   this allows the LLM to learn how to predict the next token in a sequence
 
 #   the following collate function generates the target token IDs from the input token IDs
@@ -232,7 +233,7 @@ print(targets)
 #   which we use as an indicator that the generated response is complete
 
 #   modify the custom collate function to replace token with ID 50256 with -100 in the target lists
-#   introduce an allowed_max_length parameter to ptionally limit the length of the samples
+#   introduce an allowed_max_length parameter to optionally limit the length of the samples
 
 def custom_collate_fn(
         batch,
@@ -282,7 +283,7 @@ print(inputs)
 print(targets)
 
 #   demonstration purposes
-#   here's how we moght calculate the cross entropy losss during training when the model predicts a
+#   here's how we might calculate the cross entropy loss during training when the model predicts a
 #   sequence of tokens
 logits_1 = torch.tensor(
     #   predictions for 1st token
@@ -350,7 +351,7 @@ print("Device:", device)
 #   next to reuse the chosen device setting in custom_collate_fn when we plug it into the PyTorch
 #   DataLoader class, we use the partial function from Python's functools standard library to create a
 #   version of the function with the evice argument prefilled
-#   set the allowed_max_length to 1024, whihc truncates the data to the maximum context length supported
+#   set the allowed_max_length to 1024, which truncates the data to the maximum context length supported
 #   by the GPT-2 model
 
 from functools import partial
@@ -452,7 +453,7 @@ load_weights_into_gpt(model, params)
 model.eval()
 
 #   assess the pretrained LLM's performance on one of the validation tasks by comparing its output to the expected response.
-#   this will bive us a baseline understand of how well the model performs on an instruction-following
+#   this will give us a baseline understand of how well the model performs on an instruction-following
 #   task right out of hte box, prior to fine-tuning
 #   will help to appreciate the effect of fine-tuning later on
 
@@ -482,3 +483,289 @@ print(response_text)
 
 #   Page 229
 #   7.6 Fine-tuning the LLM on instruction data
+#   take the loaded pretrained model and train it using the prepared instruction dataset
+#   for the fine-tuning process, reuse the loss calculation and training functions implemented in chapter 5
+
+from C5_pretraining_unlabeled_data import (
+calc_loss_loader,
+train_model_simple
+)
+
+#   calculate the initial loss for the training and validation sets
+
+model.to(device)
+torch.manual_seed(123)
+
+with torch.no_grad():
+    train_loss = calc_loss_loader(
+        train_loader, model, device, num_batches=5
+    )
+    val_loss = calc_loss_loader(
+        val_loader, model, device, num_batches=5
+    )
+
+#   returns 3.825908660888672
+print("Training loss:", train_loss)
+#   returns 3.7619335651397705
+print("Validation loss:", val_loss)
+
+#   can now proceed to train the model
+#   set up the training process including initializing the optimizer, setting the number of epochs, and defining the
+#   evaluation frequency and starting context to evaluate generated LLM response during
+#   training based on the first validation set instruction
+
+import time
+
+start_time = time.time()
+torch.manual_seed(123)
+optimizer = torch.optim.AdamW(
+    model.parameters(), lr=0.00005, weight_decay=0.1
+)
+num_epochs = 2
+
+train_losses, val_losses, tokens_seen = train_model_simple(
+    model, train_loader, val_loader, optimizer, device,
+    num_epochs=num_epochs, eval_freq=5, eval_iter=5,
+    start_context=format_input(val_data[0]), tokenizer=tokenizer,
+)
+
+end_time = time.time()
+execution_time_minutes = (end_time - start_time) / 60
+#   the output will display the training progress over two epochs, where a steady
+#   decrease in losses indicates improving ability to follow instructions and
+#   generate appropriate response
+print(f"Training completed in {execution_time_minutes:.2f} minutes.")
+
+#   examine the training and validation loss curves to gain additional insights into the model's learning process
+#   use the same plot_losses function
+
+from C5_pretraining_unlabeled_data import plot_losses
+epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
+#   model's performance on both the training and validation sets improves substantially
+#   over the course of training
+#   rapid decrease in losses during the initial phase indicates that the
+#   model quickly learn meaningful patterns and representation from the data
+#   as training progresses to the second epoch, the losses continue to decrease but at a
+#   slower rate, suggesting that the model is fine-tuning its learned
+#   representation and converging it to a stable solution
+plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)
+
+#   Page 233
+#   7.7 Extracting and saving responses
+#   evaluate the LLM's performance on the held-out test set
+#   first extract the model-generated responses for each input in the test dataset
+#   and collect them for manual analysis
+#   then evaluate the LLM to quantify the quality of the responses
+
+#   to complete the response instruction step, use the generate function
+#   print the model responses alongside the expected test set answers for
+#   the first three test set entries
+#   presenting them side by side for comparison
+
+torch.manual_seed(123)
+
+#   Iterates over the first three test set samples
+for entry in test_data[:3]:
+    input_text = format_input(entry)
+    #   Uses the generate function
+    #   returns the combined input and output text
+    #   use the slicing and the .replace() on the generated_text contents to extract the model's response
+    token_ids = generate(
+        model=model,
+        idx=text_to_token_ids(input_text, tokenizer).to(device),
+        max_new_tokens=256,
+        context_size =BASE_CONFIG["context_length"],
+        eos_id=50256
+    )
+    generated_text = token_ids_to_text(token_ids, tokenizer)
+
+    response_text = (
+        generated_text[len(input_text):]
+        .replace("### Response:", "")
+        .strip()
+    )
+
+    print(input_text)
+    print(f"\nCorrect response:\n>> {entry['output']}")
+    print(f"\nModel response:\n>> {response_text.strip()}")
+    print("--------------------------------------")
+
+#   use the generate method in the same manner as before
+#   iterate over the entire text_set
+#   instead of printing the model responses, add them to the test_set dictionary
+
+from tqdm import tqdm
+for i, entry in tqdm(enumerate(test_data), total=len(test_data)):
+    input_text = format_input(entry)
+
+    token_ids = generate(
+        model=model,
+        idx=text_to_token_ids(input_text, tokenizer).to(device),
+        max_new_tokens=256,
+        context_size=BASE_CONFIG["context_length"],
+        eos_id=50256
+    )
+    generated_text = token_ids_to_text(token_ids, tokenizer)
+
+    response_text =  (
+        generated_text[len(input_text):]
+        .replace("### Response:", "")
+        .strip()
+    )
+    test_data[i]["model_response"] = response_text
+
+with open("instruction-data-with-response.json", "w") as file:
+    #   indent for pretty-printing
+    json.dump(test_data, file, indent=4)
+
+#   verify that the responses have been correctly added to the teest_set dictionary
+#   by examining one of the entries
+print(test_data[0])
+
+#   save the model as gpt2-medium355M-sft.pth file to be able to reuse it in
+#   future projects
+import re
+
+#   Removes white spaces and parentheses from file name
+file_name = f"{re.sub(r'[()]', '', CHOOSE_MODEL) }-sft.pth"
+torch.save(model.state_dict(), file_name)
+print(f"Model saved as {file_name}")
+
+#   Page 238
+#   7.8 Evaluating the fine-tuned LLM
+#   toe evaluate test set responses in an automated fashion, utilize an existing instruction-fine-tuned
+#   8-billion parameter Llama 8 model
+import psutil
+
+#   Ensure that Ollama is still running
+#   evaluate the responses generated by our fine-tuned model that prompts the Llama 3 model to
+#   rate our fine-tuned model's responses on a scale
+#   from 0 to 100 based on the given test set responses as reference
+def check_if_running(process_name):
+    running = False
+    for proc in psutil.process_iter(["name"]):
+        if process_name in proc.info["name"]:
+            running = True
+            break
+    return running
+
+ollama_running = check_if_running("ollama")
+
+if not ollama_running:
+    raise RuntimeError(
+        "Ollama not running. Launch ollama before proceeding."
+)
+
+print("Ollama running:", check_if_running("ollama"))
+
+#   an alternative to the ollama run command for interacting with the model is through its REST
+#   API using Python.
+import urllib.request
+# import requests
+def query_model(
+        prompt,
+        model="llama3",
+        url="http://localhost:11435/api/chat"
+):
+    data = {
+        #   Creates the data payload as a dictionary
+        "model": model,
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        #   settings for deterministic responses
+        "options": {
+            "seed": 123,
+            "temperature": 0,
+            "num_ctx": 2048
+        }
+    }
+
+    #   Converts the dictionary as a JSON-formatted string and encodes it to bytes
+    payload = json.dumps(data).encode("utf-8")
+
+    #   Creates a request object, setting the method to POST and adding necessary headers
+    request = urllib.request.Request(
+        url,
+        data=payload,
+        method="POST"
+    )
+
+    request.add_header("Content-Type", "application/json")
+
+    response_data = ""
+    #   Sends the request and captures the response
+    with urllib.request.urlopen(request) as response:
+        while True:
+            line = response.readline().decode("utf-8")
+            if not line:
+                break
+            response_json = json.loads(line)
+            response_data += response_json["message"]["content"]
+
+    # Send the POST request
+    # with requests.post(url, json=data, stream=True, timeout=30) as r:
+    #     r.raise_for_status()
+    #     response_data = ""
+    #     for line in r.iter_lines(decode_unicode=True):
+    #         if not line:
+    #             continue
+    #         response_json = json.loads(line)
+    #         if "message" in response_json:
+    #             response_data += response_json["message"]["content"]
+    #
+    return response_data
+
+model = "llama3"
+result = query_model("What do Llama eat?", model)
+print(result)
+
+
+#   first, apply the approach to the first three examples from the test set
+
+#   generated responses show that the Llama 3 model provides reasonable evaluations and is
+#   capable of assigning partial points when a model's answer is not entirely correct
+for entry in test_data[:3]:
+    prompt = (
+    f"Given the input `{format_input(entry)}` "
+    f"and correct output `{entry['output']}`, "
+    f"score the model response `{entry['model_response']}`"
+    f" on a scale from 0 to 100, where 100 is the best score. "
+    )
+    print("\nDataset response.")
+    print(">>", entry['output'])
+    print("\nModel response:")
+    print(">>", entry["model_response"])
+    print("\nScore:")
+    print(">>", query_model(prompt))
+    print("\n-------------------------")
+
+
+#   modify the prompt to just generate integer scores ranging from 0 to 100, where
+#   100 represents the best possible score
+#   allows us to calculate an average of its performance
+
+def generate_model_scores(json_data, json_key, model="llama3"):
+    scores = []
+    for entry in tqdm(json_data, desc="Scoring entries"):
+        prompt = (
+            f"Given the input `{format_input(entry)}` "
+            f"and correct output `{entry['output']}`, "
+            f"score the model response `{entry[json_key]}`"
+            f" on a scale from 0 to 100, where 100 is the best score. "
+            #   modified instruction line to only return the score
+            f"Respond with the integer number only."
+        )
+        score = query_model(prompt, model)
+        try:
+            scores.append(int(score))
+        except ValueError:
+            print(f"Could not convert score: {score}")
+            continue
+
+    return scores
+
+#   apply the generate_model_scores function to the entire test_data set
+scores = generate_model_scores(test_data, "model_response")
+print(f"Number of scores; {len(scores)} of {len(test_data)}")
+print(f"Average score: {sum(scores)/len(scores):.2f}\n")
