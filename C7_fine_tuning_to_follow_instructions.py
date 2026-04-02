@@ -665,7 +665,7 @@ import urllib.request
 def query_model(
         prompt,
         model="llama3",
-        url="http://localhost:11435/api/chat"
+        url="http://localhost:11434/api/chat"
 ):
     data = {
         #   Creates the data payload as a dictionary
